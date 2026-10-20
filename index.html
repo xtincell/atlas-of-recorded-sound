@@ -195,6 +195,7 @@ button{font-family:inherit;color:inherit;cursor:pointer}
   .rail{display:none}
   .rail.mobile-open{display:block;position:absolute;left:0;top:0;bottom:0;z-index:9;box-shadow:12px 0 35px #0008}
   .drawer{width:88vw}
+  .drawer.open ~ .zoom{right:calc(88vw + 4px)}
   .brand h1{font-size:20px}
   .drawer .dbody{padding-bottom:40px}
 }
@@ -248,11 +249,6 @@ button{font-family:inherit;color:inherit;cursor:pointer}
         <div class="hint">Hover a genre to highlight nearby lineages. Click or press Enter for detail. <b>Brass-ringed</b> = the newest, still-unnamed child of rap &times; bossa nova.</div>
       </div>
 
-      <div class="zoom">
-        <button id="zin" aria-label="Zoom in">+</button>
-        <button id="zout" aria-label="Zoom out">&minus;</button>
-      </div>
-
       <aside class="drawer" id="drawer" aria-label="Genre detail" hidden>
         <div class="dhead">
           <button class="close" id="dclose" aria-label="Close detail">&times;</button>
@@ -271,6 +267,12 @@ button{font-family:inherit;color:inherit;cursor:pointer}
           <div id="d-chi-wrap"><div class="lbl">Descendants</div><div class="lin" id="d-chi"></div></div>
         </div>
       </aside>
+
+      <div class="zoom">
+        <button id="zin" aria-label="Zoom in">+</button>
+        <button id="zout" aria-label="Zoom out">&minus;</button>
+      </div>
+
     </section>
   </div>
 </div>
@@ -391,7 +393,7 @@ function apply(){ cam.setAttribute("transform","translate("+tx+","+ty+") scale("
   gNodes.style.setProperty("--dr",((lod?4.6:3.3)*inv)+"px");
   cam.style.setProperty("--lf",(13*inv)+"px"); cam.classList.toggle("lod",lod); }
 function vw(){return chart.clientWidth;} function vh(){return chart.clientHeight;}
-function fit(){ k=Math.min(vw()/worldW, vh()/worldH)*.96; k=Math.max(.05,k); tx=(vw()-worldW*k)/2; ty=(vh()-worldH*k)/2; apply(); }
+function fit(){ k=Math.min(vw()/worldW, vh()/worldH)*.96; k=Math.min(3,Math.max(.05,k)); tx=(vw()-worldW*k)/2; ty=(vh()-worldH*k)/2; apply(); }
 function zoomAt(f,cx,cy){ const nk=Math.min(3,Math.max(.05,k*f)); tx=cx-(cx-tx)*(nk/k); ty=cy-(cy-ty)*(nk/k); k=nk; apply(); }
 chart.addEventListener("wheel",ev=>{ev.preventDefault(); const r=chart.getBoundingClientRect(); zoomAt(ev.deltaY<0?1.12:1/1.12, ev.clientX-r.left, ev.clientY-r.top);deferView();},{passive:false});
 let drag=null;
@@ -515,12 +517,12 @@ gEdges.classList.add("hide-influence");
 const famlist=document.getElementById("famlist");
 for(const fam of FAM_ORDER){ const b=document.createElement("button"); b.className="fam"; b.setAttribute("aria-pressed","true");
   b.dataset.family=fam; b.style.setProperty("--c",FAM_COLOR[fam]); b.innerHTML='<span class="sw"></span><span class="nm">'+fam+'</span><span class="ct">'+(byFam.get(fam)||[]).length+'</span>';
-  b.onclick=()=>{ const on=b.getAttribute("aria-pressed")==="true"; if(on&&visible.size<=1)return; b.setAttribute("aria-pressed",String(!on)); if(on)visible.delete(fam);else visible.add(fam); relayout(); };
+  b.onclick=()=>{ const on=b.getAttribute("aria-pressed")==="true"; b.setAttribute("aria-pressed",String(!on)); if(on)visible.delete(fam);else visible.add(fam); relayout(); };
   famlist.appendChild(b); }
 document.getElementById("allOn").onclick=()=>{visible=new Set(FAM_ORDER);document.querySelectorAll(".fam").forEach(b=>b.setAttribute("aria-pressed","true"));relayout();};
-document.getElementById("allOff").onclick=()=>{visible=new Set([FAM_ORDER[0]]);document.querySelectorAll(".fam").forEach((b,i)=>b.setAttribute("aria-pressed",String(i===0)));relayout();};
+document.getElementById("allOff").onclick=()=>{visible=new Set();document.querySelectorAll(".fam").forEach(b=>b.setAttribute("aria-pressed","false"));relayout();};
 function syncFamilyButtons(){document.querySelectorAll(".fam").forEach(b=>b.setAttribute("aria-pressed",String(visible.has(b.dataset.family))));}
-function relayout(record=true){layout();applyLayout();if(focused&&!pos.has(focused))closeDetail(false,false);fit();if(focused){setFocus(focused);centerOn(focused,Math.max(k,.5));}if(record)rememberView();}
+function relayout(record=true){layout();applyLayout();if(focused&&!pos.has(focused))closeDetail(false,false);fit();if(focused){setFocus(focused);centerOn(focused,Math.max(k,.5));}if(!visible.size&&!q.value)searchStatus.textContent="Select a family or search to explore genres";if(record)rememberView();}
 const familyToggle=document.getElementById("families-toggle"),rail=document.getElementById("rail");
 function toggleFamilies(open){rail.classList.toggle("mobile-open",open);familyToggle.setAttribute("aria-expanded",String(open));familyToggle.textContent=open?"Hide families":"Families";}
 familyToggle.onclick=()=>toggleFamilies(!rail.classList.contains("mobile-open"));
@@ -530,7 +532,7 @@ document.addEventListener("keydown",ev=>{if(ev.key!=="Escape")return;if(rail.cla
 function rememberView(push=false){
   if(restoring)return;clearTimeout(viewTimer);viewTimer=null;
   const state=new URLSearchParams({atlas:"1",corpus:CORPUS_REVISION});
-  if(visible.size!==FAM_ORDER.length)for(const family of FAM_ORDER)if(visible.has(family))state.append("family",family);
+  if(!visible.size)state.set("family","");else if(visible.size!==FAM_ORDER.length)for(const family of FAM_ORDER)if(visible.has(family))state.append("family",family);
   const types=[...document.querySelectorAll(".seg button")].filter(b=>b.getAttribute("aria-pressed")==="true").map(b=>b.dataset.type).join(",");
   if(types!=="parent,fusion")state.set("types",types);
   if(focused)state.set("genre",focused);if(q.value)state.set("q",q.value);
@@ -542,7 +544,7 @@ function restoreView(){
   const previous=restoring;restoring=true;clearTimeout(viewTimer);viewTimer=null;
   try{
     const state=new URLSearchParams(location.hash.slice(1));const differentCorpus=state.has("corpus")&&state.get("corpus")!==CORPUS_REVISION;closeDetail(false,false);clearSearch();
-    const requested=state.getAll("family").filter(f=>FAM_ORDER.includes(f));visible=new Set(requested.length?requested:FAM_ORDER);syncFamilyButtons();
+    const requested=state.getAll("family").filter(f=>FAM_ORDER.includes(f));visible=new Set(state.has("family")?requested:FAM_ORDER);syncFamilyButtons();
     const types=state.has("types")?state.get("types").split(","):["parent","fusion"];
     document.querySelectorAll(".seg button").forEach(b=>{const on=types.includes(b.dataset.type);b.setAttribute("aria-pressed",String(on));gEdges.classList.toggle("hide-"+b.dataset.type,!on);});
     relayout(false);

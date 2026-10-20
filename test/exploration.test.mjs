@@ -64,3 +64,14 @@ test('clearing the search removes the query and every highlighted result', () =>
   const h = searchHarness(); h.enter('Pierre Schaeffer'); assert.equal(h.clear(), '');
   assert.deepEqual(h.enter(''), []);
 });
+
+test('None removes every family instead of retaining the first one', () => {
+  const buttons = families.map(() => ({ pressed: 'true', setAttribute(_key, value) { this.pressed = value; } }));
+  const control = {};
+  const context = vm.createContext({ visible: new Set(families), FAM_ORDER: families, relayout() {},
+    document: { getElementById: () => control, querySelectorAll: () => buttons },
+  });
+  const actualHandler = script.split('\n').find(line => line.startsWith('document.getElementById("allOff").onclick='));
+  assert.ok(actualHandler); new vm.Script(actualHandler).runInContext(context); control.onclick();
+  assert.equal(context.visible.size, 0); assert.ok(buttons.every(b => b.pressed === 'false'));
+});

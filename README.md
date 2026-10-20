@@ -14,7 +14,8 @@ this release preserves that corpus exactly and does not certify its historical c
 - Search by genre, alias or artist; Enter opens the first matching result.
 - Use Tab to enter the graph, arrows to move, and Enter or Space for detail.
   Escape closes the detail and returns focus to the genre.
-- Filter families and lineage types. The Families control exposes the same
+- Filter families and lineage types; None leaves the graph empty until a family
+  or a search result is chosen. The Families control exposes the same
   filters on narrow screens.
 - The address contains the selected genre, filters, camera and corpus revision.
   Bookmark or copy it to resume in another tab. Back returns to the preceding
